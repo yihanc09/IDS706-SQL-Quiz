@@ -43,7 +43,7 @@ jobs:
       - name: Install dependencies
         run: python -m pip install -r requirements.txt
 
-      - name: Run PostgreSQL integration tests
+      - name: Run PostgreSQL integration and security tests
         env:
           QUIZ_DATABASE_URL: ${{ secrets.QUIZ_DATABASE_URL }}
-        run: python -m pytest tests/test_database_connection.py -v
+        run: python -m pytest tests/test_database_connection.py tests/test_sql_security.py -v
