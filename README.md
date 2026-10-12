@@ -148,14 +148,18 @@ The database connection and security tests require a valid `QUIZ_DATABASE_URL` a
 
 ### GitHub Actions
 
-The workflow is in `.github/workflows/test.yml` and runs on pushes and pull requests to `main`, or by manual dispatch. **With the current workflow configuration**, it executes:
+Continuous Integration (CI) is configured in `.github/workflows/test.yml`. The workflow runs automatically on pushes and pull requests to `main`, and can also be triggered manually.
 
-- **`unit-tests`:** `tests/test_quiz.py` (7 cases).
-- **`database-tests`:** `tests/test_database_connection.py` and `tests/test_sql_security.py` (18 cases), using the `QUIZ_DATABASE_URL` repository Secret.
+The workflow includes two jobs:
 
-This means CI is configured to run **25 test cases**. `tests/test_grading.py` is included in the local full-suite command but is **not yet included in the current CI workflow**. Add it to the unit-test command if you want CI to cover all 33 cases.
+- **`unit-tests`:** Runs 15 tests covering quiz content, expected results, and automatic grading.
+- **`database-tests`:** Runs 18 integration and security tests using the `QUIZ_DATABASE_URL` GitHub Actions Secret. These tests verify database connectivity, read-only SQL execution, access restrictions, audit-log permissions, and trigger-function security.
 
-The 17 SQL security tests passed locally after tightening trigger-function permissions. Confirm the latest GitHub Actions run is green before reporting the updated CI as passing.
+In total, the CI workflow executes **33 automated test cases**.
+
+The security tests also verify that the student database role cannot directly access or modify audit records. During testing, an overly permissive trigger-function permission was identified and corrected, demonstrating how automated tests helped strengthen the application's security.
+
+Both jobs must pass for the CI workflow to complete successfully.
 
 ## Production Smoke Tests
 
