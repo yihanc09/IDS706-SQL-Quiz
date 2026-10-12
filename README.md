@@ -19,6 +19,8 @@ The application includes five SQL questions worth a total of 20 points. Each que
 ### Key Features
 
 - **User Authentication:** Sign up, sign in, and sign out using Supabase Authentication.
+- **Dataset Guide:** Introduces the Chinook music store database, its key tables, and their relationships.
+- **Contextual Learning Support:** Each question includes a business scenario and an expandable reference to relevant tables and fields, helping students unfamiliar with the dataset complete the quiz.
 - **Interactive SQL Editor:** Write and execute SQL queries through the Streamlit interface.
 - **Real Database Results:** Display query output directly from hosted PostgreSQL.
 - **Automatic Grading:** SQL query results are compared against expected results, with four points available per question.
@@ -174,6 +176,35 @@ After deployment to Streamlit Community Cloud, the following actions were manual
 | Prevent logged-out users from executing or saving SQL | Passed |
 
 **Result:** All five production smoke-test checks passed.
+
+
+### Audit Logging
+
+The application uses a PostgreSQL audit table and an
+AFTER INSERT OR UPDATE trigger on `public.quiz_answers`.
+
+Each audit record includes:
+- The authenticated user's ID
+- The action performed (SAVE_ANSWER or UPDATE_ANSWER)
+- The question ID
+- The timestamp
+
+Audit records are generated automatically by PostgreSQL
+when a student's answer is inserted or updated.
+
+### Audit Log Integrity
+
+The audit log is protected using PostgreSQL permissions
+and Row Level Security (RLS).
+
+- The `quiz_reader` role cannot read or modify audit records.
+- The `authenticated` role has no direct table access.
+- A SECURITY DEFINER trigger function writes audit records.
+- Direct DELETE attempts using the student database role
+  are rejected.
+
+Database privilege checks and a negative DELETE test
+were performed to verify the access restrictions.
 
 ## Project Structure
 
