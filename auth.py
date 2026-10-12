@@ -71,3 +71,11 @@ def load_answers(client, user_id):
         question_id: row["sql_answer"]
         for question_id, row in load_answer_records(client, user_id).items()
     }
+
+
+def record_query_event(client, question_id, action, success):
+    """Append a query event via authenticated, restricted Supabase RPC."""
+    return client.rpc(
+        "record_quiz_query_event",
+        {"p_question_id": question_id, "p_action": action, "p_success": success},
+    ).execute()

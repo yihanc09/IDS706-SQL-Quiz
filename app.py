@@ -8,6 +8,7 @@ from auth import (
     save_answer,
     load_answer_records,
     save_graded_answer,
+    record_query_event,
 )
 from database import run_query
 from grading import grade_result
@@ -387,37 +388,51 @@ track.track_id = invoice_line.track_id""",
             elif query_text.rstrip(";").count(";") > 0:
                 st.error("Only one SQL statement is allowed.")
             else:
+                audit_action = "SUBMIT_QUERY" if submit_clicked else "RUN_QUERY"
                 try:
                     result = run_query(query_text)
+                except Exception as exc:
+                    # Log failed executions too; never confuse them with successful runs.
+                    try:
+                        record_query_event(client, selected_id, audit_action, False)
+                    except Exception as audit_exc:
+                        st.warning(f"Could not record audit event: {audit_exc}")
+                    st.error(f"Query execution failed: {exc}")
+                else:
+                    try:
+                        record_query_event(client, selected_id, audit_action, True)
+                    except Exception as audit_exc:
+                        st.warning(f"Could not record audit event: {audit_exc}")
                     st.success(
                         f"Query executed successfully! {len(result)} rows returned."
                     )
                     st.dataframe(result, use_container_width=True, hide_index=True)
-                    if submit_clicked:
-                        correct, feedback = grade_result(selected_id, result)
-                        points = question["points"] if correct else 0
-                        save_graded_answer(
-                            client, verified.user.id, selected_id, sql, points, correct
-                        )
-                        grades[selected_id] = {
-                            "sql": sql,
-                            "correct": correct,
-                            "score": points,
-                        }
-                        if correct:
-                            st.success(
-                                f"Correct! {points} / {question['points']} points. {feedback}"
+                    try:
+                        if submit_clicked:
+                            correct, feedback = grade_result(selected_id, result)
+                            points = question["points"] if correct else 0
+                            save_graded_answer(
+                                client, verified.user.id, selected_id, sql, points, correct
                             )
-                        else:
-                            st.warning(
-                                f"Not yet correct: 0 / {question['points']} points. {feedback}"
+                            grades[selected_id] = {
+                                "sql": sql,
+                                "correct": correct,
+                                "score": points,
+                            }
+                            if correct:
+                                st.success(
+                                    f"Correct! {points} / {question['points']} points. {feedback}"
+                                )
+                            else:
+                                st.warning(
+                                    f"Not yet correct: 0 / {question['points']} points. {feedback}"
+                                )
+                            st.info(
+                                f"Updated total score: {sum(g['score'] for g in grades.values())} / {get_total_points()}"
                             )
-                        st.info(
-                            f"Updated total score: {sum(g['score'] for g in grades.values())} / {get_total_points()}"
-                        )
-                        st.rerun()
-                except Exception as exc:
-                    st.error(f"Query or grade submission failed: {exc}")
+                            st.rerun()
+                    except Exception as exc:
+                        st.error(f"Grade submission failed: {exc}")
 
         grade = grades.get(selected_id)
         if grade and grade["sql"] == sql:
