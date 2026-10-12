@@ -1,14 +1,14 @@
+[![SQL Quiz CI](https://github.com/yihanc09/IDS706-SQL-Quiz/actions/workflows/test.yml/badge.svg)](https://github.com/yihanc09/IDS706-SQL-Quiz/actions/workflows/test.yml)
+
 # IDS706 SQL Quiz
 
-A deployed, authentication-protected SQL quiz application built with Streamlit, Supabase PostgreSQL, and Python for IDS706 Data Engineering.
+A deployed, authentication-protected & interactive SQL quiz application built with Streamlit, Supabase PostgreSQL, and Python for IDS706 Data Engineering.
 
-Students can practice SQL against the Chinook Music Store database, execute read-only queries, view real query results, and save their answers across login sessions.
+Students can practice SQL against the Chinook Music Store database, execute read-only queries, view real query results, receive automatic grading feedback, and save their answers across login sessions.
 
 ## Live Application
 
 **Streamlit App:** [Open SQL Quiz](https://ids706-sql-quiz.streamlit.app/)
-
-**GitHub Repository:** https://github.com/yihanc09/IDS706-SQL-Quiz
 
 ## Project Overview
 
@@ -21,7 +21,9 @@ The application includes five SQL questions worth a total of 20 points. Each que
 - **User Authentication:** Sign up, sign in, and sign out using Supabase Authentication.
 - **Interactive SQL Editor:** Write and execute SQL queries through the Streamlit interface.
 - **Real Database Results:** Display query output directly from hosted PostgreSQL.
-- **Persistent Answers:** Save SQL answers to Supabase and restore them after signing in again.
+- **Automatic Grading:** SQL query results are compared against expected results, with four points available per question.
+- **Persistent Progress:** Save SQL answers to Supabase and restore them after signing in again.
+- **Results Dashboard:** Displays individual question scores, completion status, and total points earned.
 - **Access Control:** Require authentication before accessing the quiz.
 - **Read-Only Query Execution:** Use a restricted PostgreSQL role and read-only transactions.
 - **Automated Testing:** Validate quiz content, database connectivity, and selected SQL security scenarios.
