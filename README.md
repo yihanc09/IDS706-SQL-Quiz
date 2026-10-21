@@ -101,22 +101,29 @@ The independent frontend needs no Node.js installation, package installation, or
 Create a local `.env` using [`.env.example`](.env.example) as a reference:
 
 ```dotenv
-SUPABASE_URL=your_supabase_project_url
-SUPABASE_ANON_KEY=your_supabase_publishable_or_anon_key
-QUIZ_DATABASE_URL=your_quiz_reader_postgresql_connection_string
-DATABASE_URL=your_trusted_backend_postgresql_connection_string
+DATABASE_URL=postgresql://postgres.YOUR_PROJECT_REF@YOUR_POOLER_HOST:5432/postgres?sslmode=require
+DATABASE_PASSWORD=your_supabase_database_password
 ```
+
+Only these **two deployment environment variables** are required. Use the Supabase **session-mode pooler on port 5432**. Omit the password from the URI; psycopg receives `DATABASE_PASSWORD` as a separate connection option, including passwords containing special characters.
 
 | Variable | Purpose |
 |---|---|
-| `SUPABASE_URL` | Supabase project endpoint |
-| `SUPABASE_ANON_KEY` | Authentication and user-scoped answer API access |
-| `QUIZ_DATABASE_URL` | Restricted `quiz_reader` connection for student SQL |
-| `DATABASE_URL` | Trusted backend connection for audit writes, migrations, and instructor checks |
+| `DATABASE_URL` | Trusted backend connection through the session-mode pooler |
+| `DATABASE_PASSWORD` | Password for that backend connection |
 
-Keep `.env` and database credentials out of version control and frontend files. Never use an administrator connection for `QUIZ_DATABASE_URL`.
+Supabase authentication settings, the independent `quiz_reader` connection, and the session encryption key are stored in `quiz_private.runtime_config`, not additional Vercel variables. Only the trusted backend can read this table. Student queries continue using the stored reader credentials; they never use the administrator password.
 
-The Supabase project must already contain the Chinook dataset, `public.quiz_answers`, its per-user RLS policies, and the existing audit table. The included migration hardens this existing database; it is not a complete database provisioning script.
+For this existing project, initialize private settings once from the original configured local checkout:
+
+```bash
+python configure_runtime.py --init
+python configure_runtime.py --check
+```
+
+Initialization reads the existing local Supabase URL, publishable/anon key, and reader connection. It generates a session encryption key if needed and writes the settings through bound SQL parameters. It never prints secret values or overwrites an existing configuration. The original local `.env` settings remain supported for compatibility; do not remove them before the first initialization. A completely new Supabase project needs its own authenticated application configuration and reader credentials before it can be initialized.
+
+Keep `.env` and database credentials out of Git and frontend files. The database must already contain the Chinook dataset, `public.quiz_answers`, its per-user RLS policies, and the audit table. The migrations harden and configure the existing database; they do not provision the complete quiz dataset.
 
 ### 3. Apply the Audit Migration
 
@@ -173,27 +180,28 @@ entrypoint = "web_server:handler"
 
 ### Environment Variables
 
-Add these in Vercel **Settings → Environment Variables** for the intended Production/Preview environments:
+Add **only these two** in Vercel **Settings → Environment Variables** for the intended Production/Preview environments:
 
 | Variable | Value |
 |---|---|
-| `SUPABASE_URL` | The existing Supabase project URL |
-| `SUPABASE_ANON_KEY` | The existing publishable/anon key |
-| `QUIZ_DATABASE_URL` | A connection using the restricted `quiz_reader` role |
-| `DATABASE_URL` | The trusted backend audit connection |
-| `APP_SESSION_KEY` | A generated Fernet encryption key, kept stable across instances |
+| `DATABASE_URL` | Supabase session-pool connection URI on port 5432, without the password |
+| `DATABASE_PASSWORD` | The database password for that connection |
 
-Generate the session key locally, then copy the output directly into the Vercel environment-variable field:
+For example, the URI has this shape:
 
-```bash
-python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
+```text
+postgresql://postgres.YOUR_PROJECT_REF@YOUR_POOLER_HOST:5432/postgres?sslmode=require
 ```
 
-Keep the key secret; do not put it in Git, frontend code, or a build command. Changing it invalidates existing encrypted login cookies. Vercel sets `VERCEL=1` automatically; local development uses its original session behavior.
+Replace the project reference and host using the session-pool connection information from your Supabase project. Use the existing trusted backend identity. Do not substitute the reader identity for the backend, because the backend must be able to read private settings and append audit events.
 
-For database connectivity, use Supabase's IPv4-compatible **shared pooler in session mode (port 5432)** where needed. This application requires prepared statements for student queries; Supabase transaction pooling on port 6543 does not support them. Use the credentials and connection string for each role from the configured Supabase project, retaining `sslmode=require`.
+Before deploying, run `python configure_runtime.py --init` once from the existing configured local checkout. This applies `sql/002_runtime_configuration.sql` and stores the remaining settings in the administrator-only `quiz_private` schema. Supabase Auth remains in use; it obtains its project URL and publishable/anon key from that table. The shared session encryption key is also stored there, so it remains stable across function instances and deployments without an extra environment variable.
 
-After saving environment variables, redeploy the latest commit. A previous failed deployment still points at its original commit. Confirm the deployed homepage, sign-in, Run query, Save answer, Submit for grading, and restoration of saved progress. A missing/invalid `APP_SESSION_KEY` produces an explicit configuration message at sign-in; this is a runtime setting, not another entrypoint error.
+`SUPABASE_URL`, `SUPABASE_ANON_KEY`, `QUIZ_DATABASE_URL`, and `APP_SESSION_KEY` are **not required as Vercel environment variables** after initialization. Remove old Vercel overrides when switching to this configuration; legacy overrides take precedence if present. Vercel supplies `VERCEL=1` automatically.
+
+Use Supabase's IPv4-compatible **shared pooler in session mode (port 5432)**. The application requires prepared statements for student queries; transaction pooling on port 6543 does not support them. The independently stored reader connection must also support prepared statements.
+
+After saving the two variables, redeploy the latest commit. Confirm the homepage, sign-in, Run query, Save answer, Submit for grading, and restoration of saved progress. If private settings are missing or inaccessible, sign-in returns a configuration message directing the administrator to the one-time initializer.
 
 References: [Vercel Python entrypoints](https://vercel.com/docs/functions/runtimes/python#python-entrypoints), [Supabase connection methods](https://supabase.com/docs/guides/database/connecting-to-postgres).
 
@@ -280,7 +288,7 @@ Inspect recent entries, including SQL text:
 python audit_admin.py --recent 20
 ```
 
-The limit must be between 1 and 100. These commands require the backend `DATABASE_URL`; the integrity check also uses `QUIZ_DATABASE_URL`. Audit records are not exposed through a student-facing log endpoint.
+The limit must be between 1 and 100. These commands use the backend connection configured by `DATABASE_URL` and `DATABASE_PASSWORD`; the integrity check retrieves the independent reader connection from private settings (or its legacy local override). Audit records are not exposed through a student-facing log endpoint.
 
 ## Testing and Continuous Integration
 
@@ -293,17 +301,18 @@ The limit must be between 1 and 100. These commands require the backend `DATABAS
 | `tests/test_web_server.py` | 12 | Authentication boundaries, query validation, save/submit behavior, and audit calls |
 | `tests/test_audit.py` | 9 | Parameter binding, verified audit identity, event validation, and integrity-probe connections |
 | `tests/test_vercel.py` | 10 | Entrypoint, HTTPS, encrypted sessions across instances, token refresh, expiry, tampering, and logout |
+| `tests/test_runtime_config.py` | 8 | Two-variable configuration, bound passwords, private-setting loading, reader isolation, and safe initialization |
 | `tests/test_database_connection.py` | 1 | Live Chinook connectivity |
 | `tests/test_sql_security.py` | 19 | Read-only restrictions, audit permissions, parameter payloads, and stacked-statement rejection |
-| **Total** | **66** | **46 unit tests + 20 database tests** |
+| **Total** | **74** | **54 unit tests + 20 database tests** |
 
 Run unit tests without a live database:
 
 ```bash
-python -m pytest tests/test_quiz.py tests/test_grading.py tests/test_web_server.py tests/test_audit.py tests/test_vercel.py -v
+python -m pytest tests/test_quiz.py tests/test_grading.py tests/test_web_server.py tests/test_audit.py tests/test_vercel.py tests/test_runtime_config.py -v
 ```
 
-Run database tests with a valid `QUIZ_DATABASE_URL`:
+Run database tests using the stored reader connection (or a legacy local `QUIZ_DATABASE_URL` override):
 
 ```bash
 python -m pytest tests/test_database_connection.py tests/test_sql_security.py -v
@@ -315,7 +324,7 @@ Run all pytest tests:
 python -m pytest -v
 ```
 
-The **46-check administrator integrity verification** is a separate command, not part of the 66 pytest cases:
+The **46-check administrator integrity verification** is a separate command, not part of the 74 pytest cases:
 
 ```bash
 python audit_admin.py --check
@@ -327,19 +336,19 @@ The following checks passed during local validation of this implementation:
 
 | Check | Result |
 |---|---|
-| Unit tests | 46 passed |
+| Unit tests | 54 passed |
 | Live database integration/security tests | 20 passed |
 | Audit integrity verification | 46 checks passed |
 | Actual student-role UPDATE, DELETE, and TRUNCATE attempts | Rejected for `quiz_reader`, `authenticated`, and `anon` |
 | Local frontend HTTP readiness | HTTP 200 at `http://localhost:8000` |
 
-These results describe local validation, not a new production deployment or a newly completed GitHub Actions run.
+These results describe local validation, not a new production deployment or a newly completed GitHub Actions run. The private runtime-settings workflow has unit coverage; its database initialization and live two-variable verification still require running `python configure_runtime.py --init` in the configured environment.
 
 ### GitHub Actions
 
 [`.github/workflows/test.yml`](.github/workflows/test.yml) defines two jobs on pushes and pull requests to `main`, and supports manual execution:
 
-- **`unit-tests`:** Runs the five unit-test files, covering 46 cases.
+- **`unit-tests`:** Runs the six unit-test files, covering 54 cases.
 - **`database-tests`:** Runs the two database-test files, covering 20 cases, using the `QUIZ_DATABASE_URL` repository secret.
 
 Both jobs must pass for the workflow to complete successfully. Database security tests cover read-only execution, audit access restrictions, and trigger-function permissions.
@@ -360,17 +369,21 @@ IDS706-SQL-Quiz/
 ├── data/
 │   └── expected_results.json      # Reference output tables
 ├── sql/
-│   └── 001_audit_hardening.sql    # Audit schema and integrity migration
+│   ├── 001_audit_hardening.sql    # Audit schema and integrity migration
+│   └── 002_runtime_configuration.sql # Backend-only runtime configuration
 ├── tests/
 │   ├── test_quiz.py
 │   ├── test_grading.py
 │   ├── test_web_server.py
 │   ├── test_audit.py
 │   ├── test_vercel.py
+│   ├── test_runtime_config.py
 │   ├── test_database_connection.py
 │   └── test_sql_security.py
 ├── web_server.py                  # Local HTTP server and Vercel handler
 ├── web_sessions.py                # Encrypted sessions for Vercel instances
+├── runtime_config.py              # Two-variable connection and private settings
+├── configure_runtime.py           # One-time private-settings initialization/checks
 ├── pyproject.toml                 # Vercel entrypoint and runtime dependencies
 ├── vercel.json                    # Function duration and bundle exclusions
 ├── .python-version                # Deployment Python version
@@ -392,5 +405,6 @@ IDS706-SQL-Quiz/
 - This is an educational practice application. Answers can be revised, submissions are not locked, and reference SQL/results are included in the repository.
 - The standalone Python HTTP listener is for local testing. Vercel uses its Python Functions runtime and encrypted cross-instance cookies. Public deployments still need appropriate rate limiting and operational monitoring.
 - The frontend deployment URL is intentionally left blank above until a Vercel deployment is verified; the existing Streamlit URL refers to the original hosted version.
+- Private runtime settings contain reader credentials and a session key. Only the trusted backend may access them; keep the backend database password secret.
 - Audit logs retain submitted SQL for instructor review. Do not include passwords or other secrets in quiz answers.
 - Database administrators can change grants or disable triggers. Append-only controls protect against student-role edits; they are not cryptographic tamper proofing.
