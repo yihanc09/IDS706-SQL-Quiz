@@ -2,9 +2,7 @@
 
 # IDS706 SQL Quiz
 
-An interactive SQL practice application for **IDS706 Data Engineering**, built with an independent **HTML/CSS/JavaScript frontend**, a **Python backend**, and **Supabase PostgreSQL**. Students explore the Chinook Music Store database, use question-specific hints, run read-only SQL, receive automatic grading feedback, and resume saved work across sessions.
-
-The frontend uses a professional **Duke Blue** palette, responsive layouts, question navigation, a SQL editor, and a results dashboard. The original Streamlit application is also retained.
+An interactive SQL practice application for **IDS706 Data Engineering**, built with an independent HTML/CSS/JavaScript frontend, a Python backend, and Supabase PostgreSQL. Students explore the Chinook Music Store database, use question-specific hints, run read-only SQL, receive automatic grading feedback, and resume saved work across sessions.
 
 **Frontend website:**
 
@@ -177,6 +175,15 @@ entrypoint = "web_server:handler"
 - Leave Build Command, Install Command, and Output Directory at their defaults. Do not set a command that starts Streamlit or `python web_server.py`, and do not set the output directory to `frontend`.
 - `.python-version` selects Python 3.12. `pyproject.toml` lists backend runtime dependencies; Streamlit and pytest remain available for local development through `requirements.txt`.
 - `vercel.json` allows up to 60 seconds per invocation and excludes local secrets, tests, and administrator tools from the function bundle. The frontend and expected grading data remain available to the handler.
+
+<img width="1438" height="797" alt="截屏2026-10-20 下午10 19 56" src="https://github.com/user-attachments/assets/7e589a16-3d08-4c9a-b24c-45c555889420" />
+
+<img width="1432" height="786" alt="截屏2026-10-20 下午10 20 16" src="https://github.com/user-attachments/assets/6b4d047c-a4f4-4804-81b5-b5e469a61a7f" />
+
+<img width="843" height="262" alt="截屏2026-10-20 下午10 20 25" src="https://github.com/user-attachments/assets/997efe22-6adb-444f-be99-4c40db0f12b4" />
+
+<img width="1441" height="792" alt="截屏2026-10-20 下午10 20 37" src="https://github.com/user-attachments/assets/f2079050-0dfd-46bd-955f-dd3f2531c5bd" />
+
 
 ### Environment Variables
 
