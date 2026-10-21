@@ -17,11 +17,17 @@ def get_connection(read_only=True):
     if not database_url:
         raise ValueError(f"{env_name} is not configured.")
 
-    return psycopg.connect(database_url)
+    return psycopg.connect(database_url, connect_timeout=10)
 
 
-def run_query(sql):
-    """Execute a read-only SQL query and return a DataFrame."""
+def run_query(sql, params=None):
+    """Execute one read-only statement, binding data values separately.
+
+    Application-owned queries use %s placeholders and a tuple/dict of parameters.
+    A student's complete SQL statement is intentionally the statement itself;
+    it cannot be bound as a value. Preparation rejects stacked statements even
+    for callers that do not use the web/Streamlit validation layer.
+    """
 
     with get_connection() as conn:
         # Enforce a read-only transaction with a timeout.
@@ -30,7 +36,7 @@ def run_query(sql):
             conn.execute("SET LOCAL statement_timeout = '10s'")
 
             with conn.cursor() as cur:
-                cur.execute(sql)
+                cur.execute(sql, params, prepare=True)
 
                 if cur.description is None:
                     raise ValueError("The query did not return a result table.")

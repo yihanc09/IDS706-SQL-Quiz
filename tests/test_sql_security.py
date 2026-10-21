@@ -41,7 +41,7 @@ def test_quiz_reader_has_no_audit_table_privileges(privilege):
     """Verify the actual connected quiz role has no direct audit-table privileges."""
     result = run_query(
         "SELECT has_table_privilege(current_user, 'public.quiz_audit_log', "
-        f"'{privilege}') AS allowed"
+        "%s) AS allowed", (privilege,)
     )
     assert bool(result.iloc[0]["allowed"]) is False
 
@@ -51,7 +51,7 @@ def test_authenticated_has_no_audit_table_privileges(privilege):
     """Check Supabase's authenticated role without requiring admin credentials."""
     result = run_query(
         "SELECT has_table_privilege('authenticated', 'public.quiz_audit_log', "
-        f"'{privilege}') AS allowed"
+        "%s) AS allowed", (privilege,)
     )
     assert bool(result.iloc[0]["allowed"]) is False
 
@@ -83,3 +83,16 @@ def test_audit_trigger_function_not_callable_by_quiz_reader():
         "'public.log_quiz_answer_change()', 'EXECUTE') AS allowed"
     )
     assert bool(result.iloc[0]["allowed"]) is False
+
+
+def test_parameter_payload_is_returned_as_data():
+    attack = "'; DELETE FROM public.quiz_audit_log; --"
+    result = run_query("SELECT %s::text AS value", (attack,))
+    assert result.iloc[0]["value"] == attack
+
+
+def test_stacked_selects_rejected_by_driver():
+    # Both statements are read-only; a read-only transaction alone cannot pass this test.
+    from psycopg.errors import SyntaxError
+    with pytest.raises(SyntaxError):
+        run_query("SELECT 1; SELECT 2")
