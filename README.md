@@ -36,7 +36,7 @@ The quiz contains **five business-oriented SQL questions worth 20 points total**
 | Component | Technology |
 |---|---|
 | Independent frontend | HTML, CSS, JavaScript; no frontend build step |
-| Local HTTP/API backend | Python `http.server` |
+| HTTP/API backend | Python `http.server` locally; Vercel Python Functions when deployed |
 | Original application | Streamlit |
 | Database and authentication | Supabase PostgreSQL and Supabase Auth |
 | PostgreSQL driver | psycopg 3 |
@@ -143,7 +143,7 @@ python web_server.py --port 8001
 
 The server binds only to `127.0.0.1`. Stop it with Ctrl+C. Restart after changing Python backend files; frontend file changes are loaded by refreshing the browser.
 
-Login uses an HttpOnly, SameSite session cookie. Sessions expire after 12 hours and are cleared when the backend restarts, so a restart requires signing in again. Saved answers and grades remain in Supabase.
+Locally, login uses an HttpOnly, SameSite session cookie backed by process memory. Sessions expire after 12 hours and are cleared when the local backend restarts. On Vercel, sessions use encrypted HttpOnly, Secure, SameSite cookies so they can be restored on another function instance. Saved answers and grades remain in Supabase.
 
 ### 5. Run the Original Streamlit Interface (Optional)
 
@@ -152,6 +152,50 @@ python -m streamlit run app.py
 ```
 
 Open the URL printed in the terminal, usually [http://localhost:8501](http://localhost:8501). Both interfaces reuse the authentication, query execution, question definitions, and grading modules.
+
+## Deploying to Vercel
+
+Import **`yihanc09/IDS706-SQL-Quiz`**, branch `main`, with the repository root as the Root Directory. If an existing Vercel project is linked to a different repository, change its Git connection or import this repository as a new project; a push here will not update a project linked to `sql-quiz`.
+
+The deployment entrypoint is configured in `pyproject.toml`:
+
+```toml
+[tool.vercel]
+entrypoint = "web_server:handler"
+```
+
+`app.py` is the original Streamlit UI, so it is not a Vercel HTTP entrypoint. `web_server.py` exports the `BaseHTTPRequestHandler` subclass as `handler`; importing it does not start a listening server. The handler serves both the frontend assets and `/api/*` routes.
+
+- Use the **Other** framework preset if Vercel does not choose a suitable Python preset automatically.
+- Leave Build Command, Install Command, and Output Directory at their defaults. Do not set a command that starts Streamlit or `python web_server.py`, and do not set the output directory to `frontend`.
+- `.python-version` selects Python 3.12. `pyproject.toml` lists backend runtime dependencies; Streamlit and pytest remain available for local development through `requirements.txt`.
+- `vercel.json` allows up to 60 seconds per invocation and excludes local secrets, tests, and administrator tools from the function bundle. The frontend and expected grading data remain available to the handler.
+
+### Environment Variables
+
+Add these in Vercel **Settings → Environment Variables** for the intended Production/Preview environments:
+
+| Variable | Value |
+|---|---|
+| `SUPABASE_URL` | The existing Supabase project URL |
+| `SUPABASE_ANON_KEY` | The existing publishable/anon key |
+| `QUIZ_DATABASE_URL` | A connection using the restricted `quiz_reader` role |
+| `DATABASE_URL` | The trusted backend audit connection |
+| `APP_SESSION_KEY` | A generated Fernet encryption key, kept stable across instances |
+
+Generate the session key locally, then copy the output directly into the Vercel environment-variable field:
+
+```bash
+python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
+```
+
+Keep the key secret; do not put it in Git, frontend code, or a build command. Changing it invalidates existing encrypted login cookies. Vercel sets `VERCEL=1` automatically; local development uses its original session behavior.
+
+For database connectivity, use Supabase's IPv4-compatible **shared pooler in session mode (port 5432)** where needed. This application requires prepared statements for student queries; Supabase transaction pooling on port 6543 does not support them. Use the credentials and connection string for each role from the configured Supabase project, retaining `sslmode=require`.
+
+After saving environment variables, redeploy the latest commit. A previous failed deployment still points at its original commit. Confirm the deployed homepage, sign-in, Run query, Save answer, Submit for grading, and restoration of saved progress. A missing/invalid `APP_SESSION_KEY` produces an explicit configuration message at sign-in; this is a runtime setting, not another entrypoint error.
+
+References: [Vercel Python entrypoints](https://vercel.com/docs/functions/runtimes/python#python-entrypoints), [Supabase connection methods](https://supabase.com/docs/guides/database/connecting-to-postgres).
 
 ## SQL Parameters and Execution Safety
 
@@ -248,14 +292,15 @@ The limit must be between 1 and 100. These commands require the backend `DATABAS
 | `tests/test_grading.py` | 8 | Correct results and grading edge cases |
 | `tests/test_web_server.py` | 12 | Authentication boundaries, query validation, save/submit behavior, and audit calls |
 | `tests/test_audit.py` | 9 | Parameter binding, verified audit identity, event validation, and integrity-probe connections |
+| `tests/test_vercel.py` | 10 | Entrypoint, HTTPS, encrypted sessions across instances, token refresh, expiry, tampering, and logout |
 | `tests/test_database_connection.py` | 1 | Live Chinook connectivity |
 | `tests/test_sql_security.py` | 19 | Read-only restrictions, audit permissions, parameter payloads, and stacked-statement rejection |
-| **Total** | **56** | **36 unit tests + 20 database tests** |
+| **Total** | **66** | **46 unit tests + 20 database tests** |
 
 Run unit tests without a live database:
 
 ```bash
-python -m pytest tests/test_quiz.py tests/test_grading.py tests/test_web_server.py tests/test_audit.py -v
+python -m pytest tests/test_quiz.py tests/test_grading.py tests/test_web_server.py tests/test_audit.py tests/test_vercel.py -v
 ```
 
 Run database tests with a valid `QUIZ_DATABASE_URL`:
@@ -270,7 +315,7 @@ Run all pytest tests:
 python -m pytest -v
 ```
 
-The **46-check administrator integrity verification** is a separate command, not part of the 56 pytest cases:
+The **46-check administrator integrity verification** is a separate command, not part of the 66 pytest cases:
 
 ```bash
 python audit_admin.py --check
@@ -282,7 +327,7 @@ The following checks passed during local validation of this implementation:
 
 | Check | Result |
 |---|---|
-| Unit tests | 36 passed |
+| Unit tests | 46 passed |
 | Live database integration/security tests | 20 passed |
 | Audit integrity verification | 46 checks passed |
 | Actual student-role UPDATE, DELETE, and TRUNCATE attempts | Rejected for `quiz_reader`, `authenticated`, and `anon` |
@@ -294,7 +339,7 @@ These results describe local validation, not a new production deployment or a ne
 
 [`.github/workflows/test.yml`](.github/workflows/test.yml) defines two jobs on pushes and pull requests to `main`, and supports manual execution:
 
-- **`unit-tests`:** Runs the four unit-test files, covering 36 cases.
+- **`unit-tests`:** Runs the five unit-test files, covering 46 cases.
 - **`database-tests`:** Runs the two database-test files, covering 20 cases, using the `QUIZ_DATABASE_URL` repository secret.
 
 Both jobs must pass for the workflow to complete successfully. Database security tests cover read-only execution, audit access restrictions, and trigger-function permissions.
@@ -321,9 +366,14 @@ IDS706-SQL-Quiz/
 │   ├── test_grading.py
 │   ├── test_web_server.py
 │   ├── test_audit.py
+│   ├── test_vercel.py
 │   ├── test_database_connection.py
 │   └── test_sql_security.py
-├── web_server.py                  # Local HTTP server and authenticated API
+├── web_server.py                  # Local HTTP server and Vercel handler
+├── web_sessions.py                # Encrypted sessions for Vercel instances
+├── pyproject.toml                 # Vercel entrypoint and runtime dependencies
+├── vercel.json                    # Function duration and bundle exclusions
+├── .python-version                # Deployment Python version
 ├── app.py                         # Original Streamlit interface
 ├── auth.py                        # Supabase authentication, answers, and audit writes
 ├── database.py                    # Parameterized, prepared, read-only query execution
@@ -340,7 +390,7 @@ IDS706-SQL-Quiz/
 ## Scope and Limitations
 
 - This is an educational practice application. Answers can be revised, submissions are not locked, and reference SQL/results are included in the repository.
-- The independent Python HTTP server is intended for local testing. Production hosting requires HTTPS, a production server, shared session storage, and rate limiting.
-- The independent frontend has not been published. Its deployment URL is intentionally left blank above; the existing Streamlit URL refers to the original hosted version.
+- The standalone Python HTTP listener is for local testing. Vercel uses its Python Functions runtime and encrypted cross-instance cookies. Public deployments still need appropriate rate limiting and operational monitoring.
+- The frontend deployment URL is intentionally left blank above until a Vercel deployment is verified; the existing Streamlit URL refers to the original hosted version.
 - Audit logs retain submitted SQL for instructor review. Do not include passwords or other secrets in quiz answers.
 - Database administrators can change grants or disable triggers. Append-only controls protect against student-role edits; they are not cryptographic tamper proofing.
