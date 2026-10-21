@@ -16,6 +16,7 @@ from database import run_query
 from grading import grade_result
 from quiz import get_questions, get_total_points
 from web_sessions import SESSION_TTL, is_vercel, session_cipher, encode_session, decode_session
+from runtime_config import RuntimeConfigError
 
 ROOT = Path(__file__).resolve().parent / "frontend"
 QUESTIONS = {q["id"]: q for q in get_questions()}
@@ -158,6 +159,8 @@ class Handler(BaseHTTPRequestHandler):
                     SESSIONS[sid] = {"client": client, "expires": time.time() + SESSION_TTL, "lock": threading.Lock()}
                 return self.reply(200, {"user": {"email": response.user.email}, "records": records},
                                   f"quiz_session={sid}; HttpOnly; SameSite=Strict; Path=/; Max-Age={SESSION_TTL}")
+            except RuntimeConfigError as exc:
+                return self.reply(503, {"error": str(exc)})
             except Exception:
                 return self.reply(400, {"error": "Unable to sign in or create your account. Check your credentials, email confirmation, and Supabase connection."})
         sid, session = self.session()
