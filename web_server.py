@@ -134,7 +134,7 @@ class Handler(BaseHTTPRequestHandler):
                 try:
                     session_cipher()
                 except ValueError:
-                    return self.reply(503, {"error": "Server session encryption is not configured. Set a valid APP_SESSION_KEY in Vercel and redeploy."})
+                    return self.reply(503, {"error": "Private server settings are unavailable. Check DATABASE_URL / DATABASE_PASSWORD and run configure_runtime.py --init once from the configured local checkout."})
             email, password = data.get("email", ""), data.get("password", "")
             if not isinstance(email, str) or not isinstance(password, str) or not email.strip() or not password:
                 return self.reply(400, {"error": "Enter your email and password."})

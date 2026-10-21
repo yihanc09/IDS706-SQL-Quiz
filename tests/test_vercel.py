@@ -93,12 +93,13 @@ def test_deployed_https_origin_validation(vercel, origin, expected):
 
 def test_missing_session_key_returns_actionable_configuration_error(vercel):
     vercel.delenv("APP_SESSION_KEY")
+    vercel.setattr(sessions, "get_setting", Mock(side_effect=ValueError("Private settings unavailable")))
     login = Mock()
     vercel.setattr(web, "sign_in", login)
     instance = request("/api/login", {"email": "student@example.com", "password": "test"})
     instance.do_POST()
     assert instance.reply.call_args.args[0] == 503
-    assert "APP_SESSION_KEY" in instance.reply.call_args.args[1]["error"]
+    assert "configure_runtime.py --init" in instance.reply.call_args.args[1]["error"]
     login.assert_not_called()
 
 

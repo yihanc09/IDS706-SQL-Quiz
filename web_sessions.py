@@ -5,6 +5,7 @@ import os
 import time
 
 from cryptography.fernet import Fernet, InvalidToken
+from runtime_config import get_setting
 
 SESSION_TTL = 12 * 60 * 60
 
@@ -14,9 +15,7 @@ def is_vercel():
 
 
 def session_cipher():
-    key = os.getenv("APP_SESSION_KEY", "")
-    if not key:
-        raise ValueError("APP_SESSION_KEY is required on Vercel.")
+    key = get_setting("APP_SESSION_KEY")
     try:
         return Fernet(key.encode("ascii"))
     except (ValueError, UnicodeError) as exc:
