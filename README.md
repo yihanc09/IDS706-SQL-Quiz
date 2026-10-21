@@ -8,7 +8,7 @@ The frontend uses a professional **Duke Blue** palette, responsive layouts, ques
 
 **Frontend website:**
 
-**Original Streamlit app:** [IDS706 SQL Quiz](https://ids706-sql-quiz.streamlit.app/)
+**Vercel:** [IDS706 SQL Quiz](https://sql-quiz-jade.vercel.app/)
 
 **Local frontend preview:** [http://localhost:8000](http://localhost:8000)
 
