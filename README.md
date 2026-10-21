@@ -241,6 +241,8 @@ Reference: [psycopg parameter binding](https://www.psycopg.org/psycopg3/docs/bas
 
 ## Audit Logging and Integrity
 
+<img width="1465" height="795" alt="截屏2026-10-20 下午10 26 35" src="https://github.com/user-attachments/assets/edacb6c1-a2e8-4def-a1c4-1abf5cf5912c" />
+
 ### What Is Recorded
 
 Audit entries in `public.quiz_audit_log` contain:
