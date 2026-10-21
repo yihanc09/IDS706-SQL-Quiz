@@ -6,6 +6,8 @@ A 20-point SQL quiz using Supabase PostgreSQL and Supabase Auth. Students sign i
 
 **Public application:** [sql-quiz-jade.vercel.app](https://sql-quiz-jade.vercel.app/)
 
+This is the canonical coursework repository. The connected Vercel project deploys the synchronized frontend and Python API from [yihanc09/sql-quiz](https://github.com/yihanc09/sql-quiz). Changes to this repository must also be synchronized there to update the website.
+
 The main interface uses HTML/CSS/JavaScript and a Python HTTP backend. An optional Streamlit interface shares the same services. Week 8 preparation includes a 17-document retrieval corpus; vector retrieval and AI SQL generation are not implemented yet.
 
 ## Run locally
