@@ -10,12 +10,13 @@ from pathlib import Path
 
 import psycopg
 from cryptography.fernet import Fernet
+from dotenv import dotenv_values
 from psycopg.types.json import Jsonb
 
 from runtime_config import PRIVATE_SETTINGS, RuntimeConfigError, backend_connection
 
 
-def seed_settings(conn):
+def seed_settings(conn, source=None):
     existing = conn.execute(
         "SELECT settings FROM quiz_private.runtime_config WHERE singleton = %s", (True,)
     ).fetchone()
@@ -24,7 +25,8 @@ def seed_settings(conn):
         if missing:
             raise RuntimeConfigError("Existing private settings are incomplete; review them with the database administrator.")
         return False
-    values = {name: os.getenv(name, "") for name in PRIVATE_SETTINGS}
+    source = os.environ if source is None else source
+    values = {name: source.get(name, "") for name in PRIVATE_SETTINGS}
     missing = [name for name in PRIVATE_SETTINGS if name != "APP_SESSION_KEY" and not values[name]]
     if missing:
         raise RuntimeConfigError(
@@ -68,7 +70,10 @@ def main():
     group = parser.add_mutually_exclusive_group(required=True)
     group.add_argument("--init", action="store_true", help="Apply private-schema migration and seed existing local settings")
     group.add_argument("--check", action="store_true", help="Verify student-facing roles cannot access private settings")
+    parser.add_argument("--from-env", type=Path, help="Read initial private settings from a local backup without replacing the two deployment variables")
     args = parser.parse_args()
+    if args.from_env and (not args.init or not args.from_env.is_file()):
+        parser.error("--from-env requires --init and an existing local file")
     try:
         with backend_connection() as conn:
             if args.init:
@@ -76,7 +81,8 @@ def main():
                 migration = Path(__file__).resolve().parent / "sql" / "002_runtime_configuration.sql"
                 conn.execute(migration.read_text(), prepare=False)
                 with conn.transaction():
-                    created = seed_settings(conn)
+                    source = dotenv_values(args.from_env) if args.from_env else None
+                    created = seed_settings(conn, source)
                 print("Private settings initialized." if created else "Existing private settings retained.")
             checks = check_private_permissions(conn)
             for label, passed in checks:

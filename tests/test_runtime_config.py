@@ -1,5 +1,6 @@
 """Two-variable deployment and private configuration regressions."""
 
+import os
 from unittest.mock import MagicMock, Mock
 
 import psycopg
@@ -107,3 +108,14 @@ def test_initialization_binds_configuration_values_and_generates_session_key(pri
     assert stored["QUIZ_DATABASE_URL"] == values["QUIZ_DATABASE_URL"]
     assert stored["APP_SESSION_KEY"]
     Fernet(stored["APP_SESSION_KEY"].encode())
+
+
+def test_backup_initialization_does_not_replace_deployment_connection(private_config):
+    monkeypatch, values, conn, _ = private_config
+    monkeypatch.setenv("DATABASE_URL", "postgresql://current-backend@pooler/postgres")
+    monkeypatch.setenv("DATABASE_PASSWORD", "current-password")
+    conn.execute.return_value.fetchone.return_value = None
+    assert configure_runtime.seed_settings(conn, values) is True
+    assert conn.execute.call_args.args[1][1].obj == values
+    assert os.environ["DATABASE_URL"] == "postgresql://current-backend@pooler/postgres"
+    assert os.environ["DATABASE_PASSWORD"] == "current-password"
