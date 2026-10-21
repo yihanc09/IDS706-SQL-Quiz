@@ -121,7 +121,7 @@ python configure_runtime.py --init
 python configure_runtime.py --check
 ```
 
-Initialization reads the existing local Supabase URL, publishable/anon key, and reader connection. It generates a session encryption key if needed and writes the settings through bound SQL parameters. It never prints secret values or overwrites an existing configuration. The original local `.env` settings remain supported for compatibility; do not remove them before the first initialization. A completely new Supabase project needs its own authenticated application configuration and reader credentials before it can be initialized.
+Initialization reads the existing local Supabase URL, publishable/anon key, and reader connection. It generates a session encryption key if needed and writes the settings through bound SQL parameters. It never prints secret values or overwrites an existing configuration. The original local `.env` settings remain supported for compatibility; do not remove them before the first initialization. If `.env` has already been reduced to the two deployment variables, import the original settings from its local backup instead: `python configure_runtime.py --init --from-env .env.old`. This reads the backup without replacing the current backend connection or printing secret values. A completely new Supabase project needs its own authenticated application configuration and reader credentials before it can be initialized.
 
 Keep `.env` and database credentials out of Git and frontend files. The database must already contain the Chinook dataset, `public.quiz_answers`, its per-user RLS policies, and the audit table. The migrations harden and configure the existing database; they do not provision the complete quiz dataset.
 
@@ -298,13 +298,13 @@ The limit must be between 1 and 100. These commands use the backend connection c
 |---|---:|---|
 | `tests/test_quiz.py` | 7 | Question definitions and reference data |
 | `tests/test_grading.py` | 8 | Correct results and grading edge cases |
-| `tests/test_web_server.py` | 12 | Authentication boundaries, query validation, save/submit behavior, and audit calls |
+| `tests/test_web_server.py` | 13 | Authentication boundaries, query validation, save/submit behavior, and audit calls |
 | `tests/test_audit.py` | 9 | Parameter binding, verified audit identity, event validation, and integrity-probe connections |
 | `tests/test_vercel.py` | 10 | Entrypoint, HTTPS, encrypted sessions across instances, token refresh, expiry, tampering, and logout |
-| `tests/test_runtime_config.py` | 8 | Two-variable configuration, bound passwords, private-setting loading, reader isolation, and safe initialization |
+| `tests/test_runtime_config.py` | 9 | Two-variable configuration, bound passwords, private-setting loading, reader isolation, and safe initialization |
 | `tests/test_database_connection.py` | 1 | Live Chinook connectivity |
 | `tests/test_sql_security.py` | 19 | Read-only restrictions, audit permissions, parameter payloads, and stacked-statement rejection |
-| **Total** | **74** | **54 unit tests + 20 database tests** |
+| **Total** | **76** | **56 unit tests + 20 database tests** |
 
 Run unit tests without a live database:
 
@@ -324,7 +324,7 @@ Run all pytest tests:
 python -m pytest -v
 ```
 
-The **46-check administrator integrity verification** is a separate command, not part of the 74 pytest cases:
+The **46-check administrator integrity verification** is a separate command, not part of the 76 pytest cases:
 
 ```bash
 python audit_admin.py --check
@@ -336,19 +336,19 @@ The following checks passed during local validation of this implementation:
 
 | Check | Result |
 |---|---|
-| Unit tests | 54 passed |
+| Unit tests | 56 passed |
 | Live database integration/security tests | 20 passed |
 | Audit integrity verification | 46 checks passed |
 | Actual student-role UPDATE, DELETE, and TRUNCATE attempts | Rejected for `quiz_reader`, `authenticated`, and `anon` |
 | Local frontend HTTP readiness | HTTP 200 at `http://localhost:8000` |
 
-These results describe local validation, not a new production deployment or a newly completed GitHub Actions run. The private runtime-settings workflow has unit coverage; its database initialization and live two-variable verification still require running `python configure_runtime.py --init` in the configured environment.
+These results describe local validation, not a new production deployment or a newly completed GitHub Actions run. The private runtime-settings table has been initialized in the project database. Live two-variable validation confirmed Supabase Auth connectivity (HTTP 200), session encryption, and all 20 database tests; 28 private-configuration permission checks passed. Actual account login still requires valid user credentials.
 
 ### GitHub Actions
 
 [`.github/workflows/test.yml`](.github/workflows/test.yml) defines two jobs on pushes and pull requests to `main`, and supports manual execution:
 
-- **`unit-tests`:** Runs the six unit-test files, covering 54 cases.
+- **`unit-tests`:** Runs the six unit-test files, covering 56 cases.
 - **`database-tests`:** Runs the two database-test files, covering 20 cases, using the `QUIZ_DATABASE_URL` repository secret.
 
 Both jobs must pass for the workflow to complete successfully. Database security tests cover read-only execution, audit access restrictions, and trigger-function permissions.
