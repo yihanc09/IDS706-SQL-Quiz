@@ -3,6 +3,8 @@ import os
 from dotenv import load_dotenv
 from supabase import create_client
 
+from database import get_connection
+
 load_dotenv()
 
 
@@ -73,9 +75,25 @@ def load_answers(client, user_id):
     }
 
 
-def record_query_event(client, question_id, action, success):
-    """Append a query event via authenticated, restricted Supabase RPC."""
-    return client.rpc(
-        "record_quiz_query_event",
-        {"p_question_id": question_id, "p_action": action, "p_success": success},
-    ).execute()
+def record_query_event(client, question_id, action, success, sql_answer):
+    """Write a server-observed event; identity comes from the verified JWT.
+
+    DATABASE_URL stays on the backend. The taker connection is never used to
+    write logs. SQL text and user data are bound as values, never interpolated.
+    """
+    if type(question_id) is not int or question_id not in range(1, 6):
+        raise ValueError("Invalid question ID.")
+    if action not in ("RUN_QUERY", "SUBMIT_QUERY") or type(success) is not bool:
+        raise ValueError("Invalid query event.")
+    if not isinstance(sql_answer, str) or not sql_answer.strip():
+        raise ValueError("SQL text is required.")
+    user = client.auth.get_user().user
+    if not user:
+        raise ValueError("Authentication required.")
+    with get_connection(read_only=False) as conn:
+        conn.execute(
+            "INSERT INTO public.quiz_audit_log "
+            "(user_id, action, question_id, success, sql_answer, source) "
+            "VALUES (%s, %s, %s, %s, %s, %s)",
+            (user.id, action, question_id, success, sql_answer, "server"),
+        )

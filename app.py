@@ -394,13 +394,13 @@ track.track_id = invoice_line.track_id""",
                 except Exception as exc:
                     # Log failed executions too; never confuse them with successful runs.
                     try:
-                        record_query_event(client, selected_id, audit_action, False)
+                        record_query_event(client, selected_id, audit_action, False, sql)
                     except Exception as audit_exc:
                         st.warning(f"Could not record audit event: {audit_exc}")
                     st.error(f"Query execution failed: {exc}")
                 else:
                     try:
-                        record_query_event(client, selected_id, audit_action, True)
+                        record_query_event(client, selected_id, audit_action, True, sql)
                     except Exception as audit_exc:
                         st.warning(f"Could not record audit event: {audit_exc}")
                     st.success(
