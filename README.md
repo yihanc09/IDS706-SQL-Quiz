@@ -46,6 +46,16 @@ An interactive SQL practice application for **IDS706 Data Engineering**, built w
 
 The quiz grades returned columns, values, and any required row ordering. It does not require students to reproduce the reference SQL word for word. Unsaved edits stay in browser memory; save before refreshing or closing the page.
 
+
+<img width="1438" height="784" alt="截屏2026-10-22 上午1 08 48" src="https://github.com/user-attachments/assets/bf2fce5f-c1ca-439b-a48b-0ffdddb1bf5f" />
+
+<img width="1437" height="781" alt="截屏2026-10-22 上午1 09 15" src="https://github.com/user-attachments/assets/290a9e44-244c-4371-943d-25ebd0dfd79f" />
+
+<img width="849" height="186" alt="截屏2026-10-22 上午1 09 34" src="https://github.com/user-attachments/assets/65992e2a-3f59-4976-8f00-ba30884e23d2" />
+
+<img width="1435" height="797" alt="截屏2026-10-22 上午1 14 23" src="https://github.com/user-attachments/assets/8ad49698-6276-444c-a552-5780cc67ca44" />
+
+
 ### Week 8: ask a question and generate SQL
 
 1. While signed in, open a quiz question and select **Knowledge** in the question's toolkit.
@@ -55,6 +65,10 @@ The quiz grades returned columns, values, and any required row ordering. It does
 5. To try the SQL, choose **Use in editor**, then **Run query**. **Submit answer** compares it with the expected result for the currently selected quiz question.
 
 Generation leaves execution and submission to the user. An unrelated natural-language question can still produce SQL, but submitting that SQL checks it against the selected quiz question, not against a new AI-created answer key.
+
+<img width="319" height="672" alt="截屏2026-10-22 上午1 19 36" src="https://github.com/user-attachments/assets/67edce98-f450-4c3a-b633-a13b15649b63" />
+
+<img width="321" height="507" alt="截屏2026-10-22 上午1 20 03" src="https://github.com/user-attachments/assets/3a40de18-b913-43b1-bde7-a164b8727969" />
 
 ## Week 7 requirements and evidence
 
@@ -139,6 +153,8 @@ Students intentionally submit complete SQL statements; a whole statement cannot 
 Role identifiers in administrator checks use `psycopg.sql.Identifier`. These controls support classroom SQL practice; they do not provide a complete sandbox for arbitrary SQL.
 
 ### Audit logging and integrity
+
+<img width="1319" height="649" alt="截屏2026-10-22 上午1 16 52" src="https://github.com/user-attachments/assets/81a947e1-ec6a-4f65-9677-e95ea813756b" />
 
 #### What is recorded
 
